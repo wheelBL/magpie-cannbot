@@ -83,3 +83,13 @@ npm test
 ## 许可与来源
 
 MIT。凭据发现、端点及模型映射机制改编自 gentle-knight 的 [dsh-cannbot-connect](https://github.com/gentle-knight/dsh-cannbot-connect)；原版权及许可保留在 [LICENSE](./LICENSE)，详见 [NOTICE.md](./NOTICE.md)。
+
+## 流级失败重试（0.5.0）
+
+CANNBOT 网关偶尔会把 SSE 流**不带 finish_reason 直接掐断**（推理把预算烧尽时尤其常见），或以 `finish_reason=length` 结束且没有任何内容——DSH 端表现为 `Stream ended without finish_reason`。本插件对每个流式响应做旁路观察：
+
+- 正常流（有 finish_reason / 内容）→ 原样透传，零额外开销；
+- 异常终止（无 finish_reason，或 finish=length 且无内容无工具调用）且**尚未转发任何回答内容** → 沿候选链换下一个成员透明重发一次，两段流无缝拼接（丢弃 attempt-1 的收尾帧，只保留一个 [DONE]）；
+- 内容已开始转发后才被掐断 → 不重试（避免重复回答），按原样交给上层。
+
+环境变量 `CANNBOT_AUTO_STREAM_RETRY=off` 可关闭。

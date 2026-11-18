@@ -1,6 +1,6 @@
 {
   "name": "magpie-cannbot",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Cannbot provider for Magpie using CANNWork local sign-in or imported JWT and Virtual Key, with upstream-consistent output clamping, enforced-limit learning and failover within its chain",
   "type": "module",
   "main": "./index.mjs",
