@@ -1,13 +1,33 @@
 {
   "name": "magpie-cannbot",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Cannbot provider for Magpie using CANNWork local sign-in or imported JWT and Virtual Key, with upstream-consistent output clamping, enforced-limit learning and failover within its chain",
   "type": "module",
   "main": "./index.mjs",
-  "files": ["index.mjs", "lib", "README.md", "LICENSE", "NOTICE.md"],
+  "files": [
+    "index.mjs",
+    "lib",
+    "README.md",
+    "LICENSE",
+    "NOTICE.md"
+  ],
   "license": "MIT",
-  "engines": {"node": ">=22"},
-  "scripts": {"test": "node --test test/"},
-  "keywords": ["magpie-plugin", "opencode-plugin", "cannbot"],
-  "magpie": {"name": "CANNBOT", "summary": {"en": "Cannbot models with CANNWork local sign-in or imported JWT and Virtual Key, plus output-limit clamping and automatic long-output switching.", "zh": "复用 CANNWork 本机登录态或导入 JWT 与 Virtual Key，接入 Cannbot 模型；输出上限对齐上游，长输出请求自动切换。"}}
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "magpie-plugin",
+    "opencode-plugin",
+    "cannbot"
+  ],
+  "magpie": {
+    "name": "CANNBOT",
+    "summary": {
+      "en": "Cannbot models with CANNWork local sign-in or imported JWT and Virtual Key, plus output-limit clamping and automatic long-output switching.",
+      "zh": "复用 CANNWork 本机登录态或导入 JWT 与 Virtual Key，接入 Cannbot 模型；输出上限对齐上游，长输出请求自动切换。"
+    }
+  }
 }
