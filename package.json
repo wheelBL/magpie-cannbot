@@ -1,12 +1,13 @@
 {
   "name": "magpie-cannbot",
-  "version": "0.5.4",
-  "description": "Cannbot provider for Magpie using CANNWork local sign-in or imported JWT and Virtual Key, with upstream-consistent output clamping, enforced-limit learning and failover within its chain",
+  "version": "0.8.0",
+  "description": "Cannbot provider for Magpie with a built-in GitCode OAuth sign-in (magpie-managed renewal), legacy local sign-in and imported JWT + Virtual Key; output clamping belongs to magpie-route-rules",
   "type": "module",
   "main": "./index.mjs",
   "files": [
     "index.mjs",
     "lib",
+    "tools/login.mjs",
     "README.md",
     "LICENSE",
     "NOTICE.md"
@@ -16,7 +17,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs"
   },
   "keywords": [
     "magpie-plugin",
@@ -26,8 +27,8 @@
   "magpie": {
     "name": "CANNBOT",
     "summary": {
-      "en": "Cannbot models with CANNWork local sign-in or imported JWT and Virtual Key, plus output-limit clamping and automatic long-output switching.",
-      "zh": "复用 CANNWork 本机登录态或导入 JWT 与 Virtual Key，接入 Cannbot 模型；输出上限对齐上游，长输出请求自动切换。"
+      "en": "Cannbot models with built-in GitCode OAuth and automatic renewal; no VS Code extension needed.",
+      "zh": "自带 GitCode OAuth 登录与自动续期，接入 Cannbot 模型；无需 VS Code 扩展。"
     }
   }
 }
