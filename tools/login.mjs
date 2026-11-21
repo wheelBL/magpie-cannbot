@@ -1,33 +1,33 @@
 #!/usr/bin/env node
 /**
- * Sign in to CANNBOT from the terminal, without VS Code.
+ * Sign in to CANNBOT from the terminal and put the OAuth sign-in in magpie's
+ * auth store, so `magpie` renews it (auth.refresh) without VS Code.
  *
  *   node tools/login.mjs            open the GitCode page and wait for it
  *   node tools/login.mjs --no-open  print the URL (remote/headless)
- *   node tools/login.mjs --status   show what is stored now
+ *   node tools/login.mjs --status   show the stored account
  *
- * On success it writes:
- *   ~/.config/magpie/cannbot-signin.json   the refresh token (0600)
- *   ~/.local/share/opencode/session.json   the access token
- *   ~/.config/magpie/plugin-auth.json      magpie's account row for cannbot
- *
- * The plugin then renews the sign-in automatically; neither the VS Code
- * extension nor an external refresh script is needed.
+ * Writes ~/.config/magpie/plugin-auth.json (0600):
+ *   {"cannbot": {"type":"oauth", "access":…, "refresh":…, "expires":…, "accountId":…}}
+ * Restart magpie afterwards.
  */
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import * as oauth from '../lib/oauth.mjs'
-import * as signin from '../lib/signin.mjs'
+import { startAuthorize, userInfo, waitForTokens } from '../lib/oauth.mjs'
 
-const LOCAL = 'cannbot-local-session'
 const args = new Set(process.argv.slice(2))
+const authPath = join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'magpie', 'plugin-auth.json')
 
-const pluginAuthPath = join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'magpie', 'plugin-auth.json')
+function readAuth() {
+  try { return JSON.parse(readFileSync(authPath, 'utf8')) } catch { return {} }
+}
 
-function readJson(path) {
-  try { return JSON.parse(readFileSync(path, 'utf8')) } catch { return {} }
+function writeAuth(all) {
+  const tmp = `${authPath}.${process.pid}.${Date.now()}.tmp`
+  writeFileSync(tmp, JSON.stringify(all, null, 2), { mode: 0o600 })
+  renameSync(tmp, authPath)
 }
 
 function openBrowser(url) {
@@ -45,14 +45,16 @@ function openBrowser(url) {
   }
 }
 
-function showStatus() {
-  const own = signin.readOwnAuth()
-  const session = signin.readSession()
-  const exp = session === undefined ? undefined : signin.jwtExpiry(session.accessToken)
-  const magpie = readJson(pluginAuthPath).cannbot
-  console.log(`magpie's refresh token: ${own === undefined ? 'no' : `yes (${signin.ownAuthPath()})`}`)
-  console.log(`session.json:           ${session === undefined ? 'no' : `yes, ${exp === undefined ? 'expiry unknown' : `expires ${new Date(exp).toISOString()}`}`}`)
-  console.log(`magpie account row:     ${magpie === undefined ? 'no' : `${magpie.key} (${magpie.metadata?.method ?? '?'})`}`)
+function status() {
+  const entry = readAuth().cannbot
+  if (entry === undefined) {
+    console.log('magpie 里没有 cannbot 账号；运行 node tools/login.mjs 登录。')
+    return
+  }
+  const expires = Number(entry.expires)
+  console.log(`账号:     ${entry.accountId ?? '?'} (${entry.type ?? '?'})`)
+  console.log(`access:   ${Number.isFinite(expires) ? `expires ${new Date(expires).toISOString()}` : 'no expiry'}`)
+  console.log(`refresh:  ${entry.refresh ? 'yes' : 'no'}`)
 }
 
 async function main() {
@@ -61,11 +63,11 @@ async function main() {
     return
   }
   if (args.has('--status')) {
-    showStatus()
+    status()
     return
   }
 
-  const { authorizeUrl, state } = await oauth.startAuthorize()
+  const { authorizeUrl, state } = await startAuthorize()
   console.log('请在浏览器里完成 GitCode 登录：')
   console.log(`  ${authorizeUrl}`)
   if (!args.has('--no-open') && !openBrowser(authorizeUrl)) {
@@ -73,40 +75,23 @@ async function main() {
   }
   console.log('等待授权回调…')
 
-  const tokens = await oauth.waitForTokens(state)
-  const account = await oauth.userInfo(tokens.accessToken).catch(() => ({}))
-  const accountId = account?.username ?? account?.login ?? account?.email ?? signin.accountOf(tokens.accessToken).accountId ?? 'cannbot'
-  const email = account?.email ?? signin.accountOf(tokens.accessToken).email
+  const tokens = await waitForTokens(state)
+  const account = await userInfo(tokens.accessToken).catch(() => ({}))
+  const accountId = account?.username ?? account?.login ?? account?.email ?? 'cannbot'
 
-  // Everything that can fail on the network comes first: a half-written
-  // credential store (token but no account row) leaves the provider unusable.
-  const vk = await oauth.catalogVirtualKey(tokens.accessToken)
-
-  signin.writeOwnAuth(tokens, {
-    ideType: 'codearts',
-    ...(accountId ? { accountId } : {}),
-    ...(email ? { email } : {}),
-  })
-  signin.saveSession(signin.defaultSessionPath(), tokens.accessToken)
-
-  const entry = {
-    type: 'api',
-    key: LOCAL,
-    metadata: {
-      method: 'local',
-      vk,
-      ...(accountId ? { accountId } : {}),
-      ...(email ? { email } : {}),
-    },
+  const all = readAuth()
+  all.cannbot = {
+    type: 'oauth',
+    access: tokens.accessToken,
+    refresh: tokens.refreshToken,
+    expires: Date.now() + tokens.expiresIn * 1000,
+    accountId,
   }
-  const file = readJson(pluginAuthPath)
-  file.cannbot = entry
-  signin.writeFileAtomic(pluginAuthPath, JSON.stringify(file, null, 2), 0o600)
+  writeAuth(all)
 
-  console.log(`\n登录成功：${accountId}${email ? ` <${email}>` : ''}`)
-  console.log(`refresh token → ${signin.ownAuthPath()}`)
-  console.log(`access token  → ${signin.defaultSessionPath()}`)
-  console.log('重启 magpie 后生效：cannbot 会自动续期，不再需要 VS Code。')
+  console.log(`\n登录成功：${accountId}${account?.email ? ` <${account.email}>` : ''}`)
+  console.log(`已写入 ${authPath}（type=oauth，magpie 会自动续期）`)
+  console.log('重启 magpie 后生效。')
 }
 
 await main()
