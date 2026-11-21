@@ -141,24 +141,18 @@ test('a lapsed OAuth sign-in is answered with a marked 401, not a thrown fetch',
   assert.equal(res.headers.get('x-magpie-sign-in'), 'expired')
 })
 
-test('an imported accessToken signs with its own VK and refuses once expired', async () => {
-  const token = jwtWith({ exp: Math.floor(Date.now() / 1000) + 3600 })
-  let seen
-  const plugin = createPlugin({
-    fetchImpl: async (url, init) => {
-      seen = init.headers
-      return json({ ok: true })
-    },
-  })
-  const auth = { type: 'api', key: 'vk-paste', metadata: { method: 'paste', accessToken: token } }
-  const loader = await plugin.auth.loader(async () => auth)
-  await loader.fetch(CHAT, { method: 'POST', body: '{"model":"m"}' })
-  assert.equal(seen.get('x-api-vkey'), 'vk-paste')
+test('the plugin offers the OAuth method only', () => {
+  const plugin = createPlugin({ fetchImpl: async () => json({}) })
+  assert.equal(plugin.auth.methods.length, 1)
+  assert.equal(plugin.auth.methods[0].type, 'oauth')
+})
 
-  const expired = jwtWith({ exp: Math.floor(Date.now() / 1000) - 60 })
-  const stale = await plugin.auth.loader(async () => ({ type: 'api', key: 'vk', metadata: { method: 'paste', accessToken: expired } }))
-  const res = await stale.fetch(CHAT, { method: 'POST', body: '{}' })
+test('a non-OAuth account is refused instead of signed', async () => {
+  const plugin = createPlugin({ fetchImpl: async () => json({}) })
+  const loader = await plugin.auth.loader(async () => ({ type: 'api', key: 'x', metadata: { method: 'paste' } }))
+  const res = await loader.fetch(CHAT, { method: 'POST', body: '{}' })
   assert.equal(res.status, 401)
+  assert.equal(res.headers.get('x-magpie-sign-in'), 'expired')
 })
 
 test('the refresh hook returns the fields magpie keeps', async () => {

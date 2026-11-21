@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Sign in to CANNBOT from the terminal and put the OAuth sign-in in magpie's
- * auth store, so `magpie` renews it (auth.refresh) without VS Code.
+ * auth store, so `magpie` renews it through auth.refresh.
  *
  *   node tools/login.mjs            open the GitCode page and wait for it
  *   node tools/login.mjs --no-open  print the URL (remote/headless)

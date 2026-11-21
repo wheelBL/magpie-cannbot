@@ -1,7 +1,7 @@
 {
   "name": "magpie-cannbot",
-  "version": "0.9.0",
-  "description": "Cannbot provider for Magpie: CANNBOT GitCode OAuth sign-in renewed by magpie, or imported JWT + Virtual Key",
+  "version": "1.0.0",
+  "description": "Cannbot provider for Magpie: GitCode OAuth sign-in with magpie-managed renewal",
   "type": "module",
   "main": "./index.mjs",
   "files": [
@@ -27,8 +27,8 @@
   "magpie": {
     "name": "CANNBOT",
     "summary": {
-      "en": "Cannbot models with built-in GitCode OAuth and magpie-managed renewal.",
-      "zh": "自带 GitCode OAuth 登录，由 magpie 自动续期，接入 Cannbot 模型。"
+      "en": "Cannbot models with GitCode OAuth sign-in, renewed by magpie.",
+      "zh": "GitCode OAuth 登录，由 magpie 自动续期，接入 Cannbot 模型。"
     }
   }
 }
