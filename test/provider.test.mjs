@@ -56,6 +56,11 @@ test('catalogRows tolerates a missing list and refuses an empty catalog', () => 
   assert.equal(row.capabilities.toolcall, true)
 })
 
+test('modelRow advertises only the levels a model accepts', () => {
+  assert.deepEqual(Object.keys(modelRow({ model: 'glm-5.3-flash' }).variants), ['low', 'high', 'max'])
+  assert.deepEqual(Object.keys(modelRow({ model: 'deepseek-v4.1-flash' }).variants), ['minimal', 'low', 'medium', 'high', 'max', 'xhigh'])
+})
+
 test('refreshSignIn trades the refresh token and keeps the rotated one', async () => {
   const tokens = await oauth.refreshSignIn('r-old', {
     ideType: 'vscode',
@@ -71,14 +76,14 @@ test('refreshSignIn trades the refresh token and keeps the rotated one', async (
 })
 
 test('the OAuth method hands magpie a URL and resolves the SSE callback', async () => {
+  const access = jwtWith({ exp: Math.floor(Date.now() / 1000) + 3600, username: 'xubinglin' })
   const fetchImpl = async (url) => {
     if (String(url).includes('/api/oauth/authorize')) {
       return json({ authorizeUrl: 'https://gitcode.com/oauth/authorize?x=1', state: 's-1' })
     }
     if (String(url).includes('/api/oauth/sse/connect')) {
-      return sse({ accessToken: 'access-1', refreshToken: 'refresh-1', expiresIn: 3600 })
+      return sse({ accessToken: access, refreshToken: 'refresh-1', expiresIn: 3600 })
     }
-    if (String(url).includes('/api/oauth/userinfo')) return json({ username: 'xubinglin' })
     return json(CATALOG)
   }
   const plugin = createPlugin({ fetchImpl })
@@ -90,10 +95,10 @@ test('the OAuth method hands magpie a URL and resolves the SSE callback', async 
   assert.equal(started.method, 'auto')
   const result = await started.callback()
   assert.equal(result.type, 'success')
-  assert.equal(result.access, 'access-1')
+  assert.equal(result.access, access)
   assert.equal(result.refresh, 'refresh-1')
   assert.equal(result.accountId, 'xubinglin')
-  assert.ok(result.expires > Date.now())
+  assert.equal(result.expires, oauth.jwtExpiry(access))
 })
 
 test('an OAuth account signs requests with its access token and the cached VK', async () => {

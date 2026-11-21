@@ -32,7 +32,7 @@ node tools/login.mjs --status # 查看当前账号与过期时间
 
 ## 模型
 
-`provider.models` 读取 `cannbot/api/models/personal`：personal 行优先、每模型一行，`context`/`output` 取目录值；声明文本输入、工具调用、六档推理（`minimal/low/medium/high/max/xhigh`）。personal/builtin 缺一个也能解析；401/403 视为登录被拒。
+`provider.models` 读取 `cannbot/api/models/personal`：personal 行优先、每模型一行，`context`/`output` 取目录值；声明文本输入、工具调用与推理档位：默认 `minimal/low/medium/high/max/xhigh`，`glm-5.3-flash` 为 `low/high/max`。personal/builtin 缺一个也能解析；401/403 视为登录被拒。
 
 Virtual Key 从认证目录读取，按 JWT 缓存 60 秒。
 

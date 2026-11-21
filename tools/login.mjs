@@ -15,13 +15,20 @@ import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { startAuthorize, userInfo, waitForTokens } from '../lib/oauth.mjs'
+import { jwtClaims, jwtExpiry, startAuthorize, waitForTokens } from '../lib/oauth.mjs'
 
 const args = new Set(process.argv.slice(2))
 const authPath = join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'magpie', 'plugin-auth.json')
 
 function readAuth() {
-  try { return JSON.parse(readFileSync(authPath, 'utf8')) } catch { return {} }
+  try {
+    return JSON.parse(readFileSync(authPath, 'utf8'))
+  } catch (error) {
+    if (error?.code === 'ENOENT') return {}
+    // Never replace a store that exists but can't be read: that would drop
+    // every other provider's account.
+    throw new Error(`${authPath} 解析失败：${error?.message ?? error}`)
+  }
 }
 
 function writeAuth(all) {
@@ -77,20 +84,20 @@ async function main() {
   console.log('等待授权回调…')
 
   const tokens = await waitForTokens(state)
-  const account = await userInfo(tokens.accessToken).catch(() => ({}))
-  const accountId = account?.username ?? account?.login ?? account?.email ?? 'cannbot'
+  const claims = jwtClaims(tokens.accessToken) ?? {}
+  const accountId = claims.username ?? claims.email ?? 'cannbot'
 
   const all = readAuth()
   all.cannbot = {
     type: 'oauth',
     access: tokens.accessToken,
     refresh: tokens.refreshToken,
-    expires: Date.now() + tokens.expiresIn * 1000,
+    expires: jwtExpiry(tokens.accessToken) ?? Date.now() + tokens.expiresIn * 1000,
     accountId,
   }
   writeAuth(all)
 
-  console.log(`\n登录成功：${accountId}${account?.email ? ` <${account.email}>` : ''}`)
+  console.log(`\n登录成功：${accountId}${claims.email ? ` <${claims.email}>` : ''}`)
   console.log(`已写入 ${authPath}（type=oauth，magpie 会自动续期）`)
   console.log('重启 magpie 后生效。')
 }

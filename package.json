@@ -1,6 +1,6 @@
 {
   "name": "magpie-cannbot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Cannbot provider for Magpie: GitCode OAuth sign-in with magpie-managed renewal",
   "type": "module",
   "main": "./index.mjs",
