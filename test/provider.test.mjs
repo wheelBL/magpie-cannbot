@@ -125,17 +125,48 @@ test('an OAuth account signs requests with its access token and the cached VK', 
   assert.equal(catalogs, 1, 'the catalog VK is cached across requests')
 })
 
-test('an upstream 401 is marked as a lapsed sign-in', async () => {
+test('an upstream 401 with a refused catalog marks the sign-in', async () => {
   const token = jwtWith({ exp: Math.floor(Date.now() / 1000) + 3600 })
+  let catalogs = 0
   const plugin = createPlugin({
-    fetchImpl: async (url) => String(url).includes('api/models/personal')
-      ? json(CATALOG)
-      : new Response('{"error":"revoked"}', { status: 401 }),
+    fetchImpl: async (url) => {
+      if (String(url).includes('api/models/personal')) {
+        catalogs += 1
+        return catalogs === 1 ? json(CATALOG) : new Response('{"error":"bad jwt"}', { status: 401 })
+      }
+      return new Response('{"error":"revoked"}', { status: 401 })
+    },
   })
   const loader = await plugin.auth.loader(async () => ({ type: 'oauth', access: token, refresh: 'r', expires: 9e15 }))
   const res = await loader.fetch(CHAT, { method: 'POST', body: '{"model":"m"}' })
   assert.equal(res.status, 401)
   assert.equal(res.headers.get('x-magpie-sign-in'), 'expired')
+})
+
+test('an upstream 401 with a still-valid catalog is a rotated VK, not a sign-out', async () => {
+  const token = jwtWith({ exp: Math.floor(Date.now() / 1000) + 3600 })
+  let catalogs = 0
+  let chats = 0
+  const seen = []
+  const plugin = createPlugin({
+    fetchImpl: async (url, init) => {
+      if (String(url).includes('api/models/personal')) {
+        catalogs += 1
+        const vk = catalogs === 1 ? 'vk-old' : 'vk-new'
+        return json({ success: true, data: { personalModels: [{ model: 'm', apiKey: vk }], builtinModels: [] } })
+      }
+      chats += 1
+      seen.push(init.headers.get('x-api-vkey'))
+      return chats === 1 ? new Response('{"error":"bad vkey"}', { status: 401 }) : json({ ok: true })
+    },
+  })
+  const loader = await plugin.auth.loader(async () => ({ type: 'oauth', access: token, refresh: 'r', expires: 9e15 }))
+  const first = await loader.fetch(CHAT, { method: 'POST', body: '{"model":"m"}' })
+  assert.equal(first.status, 401)
+  assert.equal(first.headers.get('x-magpie-sign-in'), null)
+  const second = await loader.fetch(CHAT, { method: 'POST', body: '{"model":"m"}' })
+  assert.equal(second.status, 200)
+  assert.deepEqual(seen, ['vk-old', 'vk-new'])
 })
 
 test('a lapsed OAuth sign-in is answered with a marked 401, not a thrown fetch', async () => {
@@ -211,4 +242,12 @@ test('the model listing reads the catalog once and needs no Virtual Key', async 
   const models = await plugin.provider.models({ models: {} }, { auth: { type: 'oauth', access: token, refresh: 'r', expires: 9e15 } })
   assert.deepEqual(Object.keys(models), ['m'])
   assert.equal(catalogs, 1)
+})
+
+test('a login callback without a refresh token is refused', () => {
+  const feed = oauth.parseSseChunk('s')
+  assert.throws(
+    () => feed('event:success\ndata:{"accessToken":"a","expiresIn":3600}\n\n'),
+    /没有 refreshToken/,
+  )
 })

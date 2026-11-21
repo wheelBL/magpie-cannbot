@@ -41,7 +41,8 @@ Virtual Key 从认证目录读取，按 JWT 缓存 60 秒。
 - 只向核验过的 `chat/completions` 发 POST，替换 SDK 鉴权头为 `Authorization: Bearer <JWT>`、`x-api-vkey`、`api-key`；
 - HTTPS、不跟随重定向、目录请求 15 秒上限；
 - 错误正文脱敏；
-- 登录过期在本地直接返回 `401` + `X-Magpie-Sign-In: expired`，上游 401 同样标记。
+- 登录过期在本地直接返回 `401` + `X-Magpie-Sign-In: expired`；上游 401 会先确认目录是否仍接受 JWT——目录正常则视为 Virtual Key 轮换（下次请求用新 VK），目录也拒绝才标记登录失效。
+- 登录回调缺少 `refreshToken` 时直接失败，不保存一个无法续期的账号。
 
 ## 上游协议
 
