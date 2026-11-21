@@ -251,3 +251,22 @@ test('a login callback without a refresh token is refused', () => {
     /没有 refreshToken/,
   )
 })
+
+test('a catalog network failure on 401 does not sign the account out', async () => {
+  const token = jwtWith({ exp: Math.floor(Date.now() / 1000) + 3600 })
+  let catalogs = 0
+  const plugin = createPlugin({
+    fetchImpl: async (url) => {
+      if (String(url).includes('api/models/personal')) {
+        catalogs += 1
+        if (catalogs === 1) return json(CATALOG)
+        throw new Error('ETIMEDOUT')
+      }
+      return new Response('{"error":"bad vkey"}', { status: 401 })
+    },
+  })
+  const loader = await plugin.auth.loader(async () => ({ type: 'oauth', access: token, refresh: 'r', expires: 9e15 }))
+  const res = await loader.fetch(CHAT, { method: 'POST', body: '{"model":"m"}' })
+  assert.equal(res.status, 401)
+  assert.equal(res.headers.get('x-magpie-sign-in'), null)
+})
