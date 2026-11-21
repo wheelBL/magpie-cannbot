@@ -12,9 +12,9 @@
  * Restart magpie afterwards.
  */
 import { spawn } from 'node:child_process'
-import { readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { startAuthorize, userInfo, waitForTokens } from '../lib/oauth.mjs'
 
 const args = new Set(process.argv.slice(2))
@@ -25,6 +25,7 @@ function readAuth() {
 }
 
 function writeAuth(all) {
+  mkdirSync(dirname(authPath), { recursive: true, mode: 0o700 })
   const tmp = `${authPath}.${process.pid}.${Date.now()}.tmp`
   writeFileSync(tmp, JSON.stringify(all, null, 2), { mode: 0o600 })
   renameSync(tmp, authPath)

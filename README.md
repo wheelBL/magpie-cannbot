@@ -59,7 +59,7 @@ Virtual Key 从认证目录读取，按 JWT 缓存 60 秒。
 node --test test/*.test.mjs
 ```
 
-11 项：端点/凭据校验、目录映射与容错、JWT 过期判定、续期请求、OAuth auth method 的 URL/SSE 回调、OAuth 请求签名与 VK 缓存、上游 401 标记、过期登录的快速 401、非 OAuth 账号拒绝、refresh 钩子。
+14 项：端点/凭据校验、目录映射与容错、JWT 过期判定、续期请求、OAuth auth method 的 URL/SSE 回调、OAuth 请求签名与 VK 缓存、上游 401 标记、过期登录的快速 401、非 OAuth 账号拒绝、refresh 钩子。
 
 ## 许可
 

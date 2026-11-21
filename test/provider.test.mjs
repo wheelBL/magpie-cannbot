@@ -165,3 +165,45 @@ test('the refresh hook returns the fields magpie keeps', async () => {
   assert.ok(next.expires > Date.now())
   await assert.rejects(plugin.auth.refresh({ type: 'oauth' }), /refreshToken/)
 })
+
+test('waitForTokens reports a timeout and a cancellation in words', async () => {
+  const never = async (url, init) => new Promise((_, reject) => {
+    init.signal?.addEventListener('abort', () => {
+      const error = new Error('aborted')
+      error.name = 'AbortError'
+      reject(error)
+    }, { once: true })
+  })
+  await assert.rejects(
+    oauth.waitForTokens('s-timeout', { fetchImpl: never, timeoutMs: 20 }),
+    /登录超时/,
+  )
+  const controller = new AbortController()
+  const pending = oauth.waitForTokens('s-cancel', { fetchImpl: never, signal: controller.signal, timeoutMs: 60_000 })
+  controller.abort()
+  await assert.rejects(pending, /登录已取消/)
+})
+
+test('the auth hook is single-account and has no API-key method', () => {
+  const plugin = createPlugin({ fetchImpl: async () => json({}) })
+  assert.equal(plugin.auth.single, true)
+  assert.equal(plugin.auth.methods.length, 1)
+  assert.equal(plugin.auth.methods[0].type, 'oauth')
+  assert.equal(typeof plugin.auth.refresh, 'function')
+  assert.equal(plugin.auth.keepAlive, true)
+})
+
+test('the model listing reads the catalog once and needs no Virtual Key', async () => {
+  const token = jwtWith({ exp: Math.floor(Date.now() / 1000) + 3600 })
+  let catalogs = 0
+  const plugin = createPlugin({
+    fetchImpl: async (url) => {
+      assert.match(String(url), /api\/models\/personal/)
+      catalogs += 1
+      return json(CATALOG)
+    },
+  })
+  const models = await plugin.provider.models({ models: {} }, { auth: { type: 'oauth', access: token, refresh: 'r', expires: 9e15 } })
+  assert.deepEqual(Object.keys(models), ['m'])
+  assert.equal(catalogs, 1)
+})
